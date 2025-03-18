@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'sumukh2306/maven-docker-agent:v1'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // Mount Docker socket to access the host's Docker daemon
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:/workspace' // Mount Jenkins workspace
         }
     }
     stages {
@@ -13,14 +13,12 @@ pipeline {
         }
         stage('Build and Test') {
             steps {
-                sh 'ls -ltr'
-                // Build the project and create a JAR file
                 sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
             }
         }
         stage('Static Code Analysis') {
             environment {
-                SONAR_URL = "http://13.127.127.107:9000"  // Your SonarQube URL
+                SONAR_URL = "http://13.127.127.107:9000"
             }
             steps {
                 withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
@@ -33,8 +31,7 @@ pipeline {
         }
         stage('Build and Push Docker Image') {
             environment {
-                DOCKER_IMAGE = "sumukh2306/ultimate-cicd:${BUILD_NUMBER}"  // Your Docker Hub repo name
-                REGISTRY_CREDENTIALS = credentials('docker-cred')  // Docker Hub credentials in Jenkins
+                DOCKER_IMAGE = "sumukh2306/ultimate-cicd:${BUILD_NUMBER}"
             }
             steps {
                 script {
@@ -57,7 +54,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh '''
-                        cd $WORKSPACE  # Go to the root of the repository
+                        cd /workspace  # Mounted directory with Git repo
                         git config user.email "sumukh2306@gmail.com"
                         git config user.name "Sumukh"
                         sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
